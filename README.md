@@ -1,83 +1,149 @@
 # 🚗 Weather Impact on Urban Traffic Analysis (Big Data Final Project)
 
-This repository implements a modern predictive data lake system to analyze how weather conditions affect urban traffic patterns in London.
+**Project Goal:** Design and implement a modern predictive data lake system to analyze how weather conditions (rain, visibility, wind) affect urban traffic patterns in London.
 
-[cite_start]The system uses MinIO for tiered storage (Bronze/Silver/Gold) [cite: 7][cite_start], and HDFS for distributed processing [cite: 8][cite_start], with Python handling all ETL and analytical tasks (Monte Carlo Simulation [cite: 10] [cite_start]and Factor Analysis [cite: 11]).
-
-## 📊 Data Lake Architecture
-
-[cite_start]Our system follows a three-layer data lake architecture using MinIO, integrated with HDFS for processing [cite: 70-71].
-
-
-
-| Layer | Storage | Data Format | Purpose | Status |
-| :--- | :--- | :--- | :--- | :--- |
-| **Bronze** | MinIO | Raw CSV | [cite_start]Securely stores raw, messy, and unsanitized data (with outliers, duplicates, and nulls) [cite: 22, 16-20]. | **Complete** |
-| **Silver** | MinIO / HDFS | Cleaned Parquet | [cite_start]Stores cleaned, structured, and validated data, ready for analysis[cite: 76]. | **Next Step** |
-| **Gold** | MinIO | Reports/Results | [cite_start]Stores final outputs, reports, and predictive models (e.g., simulation results)[cite: 79]. | Pending |
-
-## 🛠️ Infrastructure Setup
-
-[cite_start]The entire environment is containerized using Docker Compose[cite: 69].
-
-| Service | Host Port | Purpose | Connection Type |
-| :--- | :--- | :--- | :--- |
-| **MinIO API** | `9000` | S3 API endpoint for all Python scripts. | TCP |
-| **MinIO Console** | `9001` | Web UI for visual inspection of buckets. | HTTP |
-| **HDFS NameNode** | `9870` | WebHDFS REST API and NameNode Web UI. | HTTP/REST |
-| **HDFS RPC** | `9002` | Native HDFS communication (mapped internally to 9000). | RPC (Internal) |
-
-### 1. Starting the Stack
-
-1.  Ensure Docker is running.
-2.  Navigate to the root directory of the repository.
-3.  Start all services:
-    ```bash
-    docker-compose up -d
-    ```
-4.  Verify all containers are up: `docker ps`
-
-### 2. Configuration Files
-
-* **`docker-compose.yaml`**: Defines all services, ports, and volumes. **Crucially, the NameNode port has been re-mapped to `9002:9000` to avoid conflicts with MinIO's `9000:9000` port.**
-* **`hadoop.env`**: Ensures HDFS replication is set to `1` (for our single-node DataNode) and defines the internal Namenode address (`hdfs://namenode:9000`) for container-to-container communication.
+This system uses a hybrid architecture with **MinIO** (Object Storage) for data layering and **HDFS** (Distributed File System) for processing, with **Python** handling the ETL and advanced analytical pipelines (Monte Carlo Simulation & Factor Analysis).
 
 ---
 
-## 🚀 Project Phases & Execution
+## 🏗️ System Architecture
 
-[cite_start]We are following the 7 project phases defined in the requirements[cite: 80].
+[cite_start]The project follows a "Bronze-Silver-Gold" data lake pattern integrated with HDFS [cite: 70-79].
 
-### (DONE) Phase 1: Infrastructure & Data Ingestion (Bronze Layer)
+| Layer      | Storage System | Format          | Description                                                                     |
+| :--------- | :------------- | :-------------- | :------------------------------------------------------------------------------ |
+| **Bronze** | MinIO          | `.csv` (Raw)    | Raw, messy ingestion layer containing duplicates, nulls, and outliers.          |
+| **Silver** | MinIO & HDFS   | `.parquet`      | Cleaned, structured, and validated data. Synced to HDFS for distributed access. |
+| **Gold**   | MinIO          | `.csv` / `.png` | Final analytical results, simulation reports, and visualization charts.         |
 
-* [cite_start]**Objective**: Set up MinIO buckets (`bronze`, `silver`, `gold`) [cite: 87-91] [cite_start]and upload raw CSVs [cite: 92-95].
-* **Status**: Complete. The raw weather and traffic synthetic datasets are successfully stored in the MinIO `bronze` bucket.
+### Tech Stack
 
-| File | Location | Description |
-| :--- | :--- | :--- |
-| `weather_raw.csv` | `minio://bronze/` | [cite_start]Raw weather data (approx. 5000 records)[cite: 30]. |
-| `traffic_raw.csv` | `minio://bronze/` | [cite_start]Raw traffic data (approx. 5000 records)[cite: 51]. |
+- **Infrastructure:** Docker & Docker Compose
+- **Storage:** MinIO (S3 Compatible), Hadoop HDFS (NameNode/DataNode)
+- **Language:** Python 3.9+
+- **Libraries:** `pandas`, `minio`, `hdfs`, `numpy`, `matplotlib`, `seaborn`, `factor_analyzer`, `pyarrow`
 
-***
+---
 
-### ➡️ NEXT STEP: Phase 2: Data Cleaning (Bronze → Silver)
+## ⚙️ Setup & Installation (On-Premise)
 
-This is the most critical ETL step, where messy data is transformed into a clean, analytical format.
+Follow these steps to clone the repository and run the project locally on your machine.
 
-* [cite_start]**Objective**: Transform messy raw data into clean analytical datasets[cite: 102].
-* **Tasks**:
-    1.  [cite_start]Remove duplicates[cite: 105].
-    2.  [cite_start]Handle missing values[cite: 106].
-    3.  [cite_start]Fix incorrect formats (dates, numbers, text)[cite: 107].
-    4.  [cite_start]Remove or correcting outliers[cite: 108].
-* **Action**: Write and run the Python script `scripts/etl_clean.py`. [cite_start]This script will save the cleaned data as **Parquet** files in the MinIO `silver` bucket [cite: 111-112].
+### 1. Prerequisites
 
-### Future Steps
+- **Docker Desktop** (running)
+- **Python 3.8+** installed locally
+- **Git**
 
-| Phase | Description | Key Deliverables (Saved to MinIO) |
-| :--- | :--- | :--- |
-| **Phase 3** | [cite_start]**HDFS Integration** (Silver → HDFS) [cite: 118-123] | [cite_start]Screenshot of uploaded Parquet files on HDFS[cite: 129]. |
-| **Phase 4** | [cite_start]**Dataset Merging** (Create Analytical Base) [cite: 130-137] | [cite_start]Final merged dataset stored in Silver or Gold layer[cite: 139]. |
-| **Phase 5** | [cite_start]**Monte Carlo Sim.** (Risk Prediction) [cite: 140-154] | [cite_start]`simulation_results.csv` and Congestion Plot (Gold) [cite: 156-157]. |
-| **Phase 6** | [cite_start]**Factor Analysis** (Weather Drivers) [cite: 159-171] | [cite_start]Factor Loadings Table and Interpretation Report (Gold) [cite: 178-181]. |
-| **Phase 7** | [cite_start]**Visualization** (Optional) [cite: 182] | [cite_start]Interactive Dashboard displaying results [cite: 185-188]. |
+### 2. Clone the Repository
+
+```bash
+git clone <YOUR_REPO_URL>
+cd "Final Big Data Project"
+3. Install Python Dependencies
+Create a virtual environment (optional) and install the required libraries:
+
+Bash
+
+pip install pandas numpy minio hdfs matplotlib seaborn factor_analyzer pyarrow
+4. Start the Infrastructure
+We use Docker Compose to spin up MinIO, the HDFS Cluster, and the Auto-Bucket creator.
+
+Important: The HDFS NameNode RPC port is mapped to 9002 on the host to avoid conflicts with MinIO.
+
+Bash
+
+docker-compose up -d
+Verify the services are running:
+
+MinIO Console: http://localhost:9001 (User: admin, Pass: admin123)
+
+HDFS Web UI: http://localhost:9870
+
+🚀 Usage Guide: Running the Pipeline
+The project is executed in 6 Sequential Phases. Run these scripts in order from the root directory.
+
+Phase 1: Data Ingestion (Bronze Layer)
+Generates synthetic "messy" data and uploads it to the MinIO Bronze bucket .
+
+Bash
+
+# 1. Generate the raw data locally
+python scripts/g_weather.py
+python scripts/g_traffic.py
+
+# 2. Upload to MinIO Bronze
+python scripts/bronze.py
+Phase 2: Data Cleaning (Bronze → Silver)
+Reads raw CSVs, fixes outliers/nulls/formats, and saves as Parquet to MinIO Silver .
+
+Bash
+
+python scripts/etl_clean.py
+Phase 3: HDFS Synchronization
+Syncs the cleaned Parquet files from MinIO Silver to the HDFS cluster (/weather_data, /traffic_data) .
+
+Note: Because of Docker networking (resolving internal container names), run this script using the Docker command below:
+
+PowerShell
+
+# Run this in PowerShell from the project root
+docker run --rm --network finalbigdataproject_default `
+  -v "${PWD}/scripts:/app" `
+  -w /app `
+  python:3.9-slim `
+  /bin/bash -c "pip install minio hdfs && python hdfs_sync.py"
+(If your network name is different, check docker network ls)
+
+Phase 4: Dataset Merging
+Joins the Weather and Traffic datasets on date_time and city into a single analytical dataset .
+
+Bash
+
+python scripts/merge_data.py
+Phase 5: Monte Carlo Simulation (Risk Prediction)
+Simulates 10,000 bad weather scenarios to predict traffic jam probabilities .
+
+Output: simulation_results.csv and congestion_distribution.png in Gold Bucket.
+
+Bash
+
+python scripts/monte_carlo_sim.py
+Phase 6: Factor Analysis
+Identifies latent hidden drivers (e.g., "Weather Severity", "Traffic Stress") using statistical factor analysis .
+
+Output: Heatmaps and Factor Loadings table in Gold Bucket.
+
+Bash
+
+python scripts/factor_analysis.py
+📂 Project Structure
+Plaintext
+
+Final Big Data Project/
+├── docker-compose.yaml      # Defines MinIO, HDFS, and Setup containers
+├── hadoop.env               # HDFS Configuration (Replication=1)
+├── SyntheticData/           # Local folder for generated raw CSVs
+├── scripts/
+│   ├── g_weather.py         # Generates messy weather data
+│   ├── g_traffic.py         # Generates messy traffic data
+│   ├── bronze.py            # Uploads raw data to Bronze
+│   ├── etl_clean.py         # Cleaning logic (Pandas)
+│   ├── hdfs_sync.py         # Syncs Silver layer to HDFS
+│   ├── merge_data.py        # Merges datasets
+│   ├── monte_carlo_sim.py   # Runs risk simulation
+│   └── factor_analysis.py   # Runs statistical analysis
+└── README.md                # Project documentation
+🐛 Troubleshooting
+1. Port Conflict Error (Bind for 0.0.0.0:9000 failed)
+
+Cause: MinIO and HDFS both tried to use port 9000.
+
+Solution: We mapped HDFS NameNode to 9002 externally in docker-compose.yaml. Do not change this back.
+
+2. HDFS Connection Error (NameResolutionError)
+
+Cause: Your PC cannot resolve the internal Docker container ID (e.g., c1cef07cc...).
+
+Solution: Use the docker run command provided in Phase 3 to execute the HDFS sync script inside the Docker network.
+```
