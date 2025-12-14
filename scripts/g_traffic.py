@@ -25,8 +25,10 @@ def generate_traffic_data():
         "congestion_level": np.random.choice(
             ["Low", "Medium", "High"], size=NUM_RECORDS
         ),
-        "road_condition": np.random.choice(["Dry", "Wet", "Snowy", "Damaged"]),
-        "visibility_m": np.random.randint(50, 10000),
+        "road_condition": np.random.choice(
+            ["Dry", "Wet", "Snowy", "Damaged"], size=NUM_RECORDS
+        ),
+        "visibility_m": np.random.randint(50, 10000, size=NUM_RECORDS),
     }
 
     df = pd.DataFrame(data)

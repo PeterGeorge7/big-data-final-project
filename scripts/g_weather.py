@@ -56,10 +56,18 @@ def generate_weather_data():
     df.loc[random.sample(range(len(df)), 50), "temperature_c"] = np.random.choice(
         [-30, 60], 50
     )
+    df.loc[random.sample(range(len(df)), 50), "humidity"] = np.random.choice(
+        [-10, 150], 50
+    )
+    df.loc[random.sample(range(len(df)), 50), "rain_mm"] = np.random.uniform(
+        80, 150, 50
+    )
     df.loc[random.sample(range(len(df)), 50), "wind_speed_kmh"] = np.random.uniform(
         150, 250, 50
     )
-
+    df.loc[random.sample(range(len(df)), 50), "visibility_m"] = np.random.randint(
+        20000, 50000, 50
+    )
     # Null Values
     for col in df.columns:
         df.loc[df.sample(frac=0.05).index, col] = np.nan

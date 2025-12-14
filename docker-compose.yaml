@@ -14,6 +14,18 @@ services:
     volumes:
       - ./minio_data:/data
 
+  create_buckets:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 admin admin123;
+      /usr/bin/mc mb myminio/bronze;
+      /usr/bin/mc mb myminio/silver;
+      /usr/bin/mc mb myminio/gold;
+      exit 0;
+      "
 
   namenode:
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
