@@ -5,7 +5,6 @@ from minio import Minio
 from PIL import Image
 
 # --- Configuration ---
-# Set page layout to wide for better visualization
 st.set_page_config(page_title="Urban Traffic Analytics", layout="wide")
 
 MINIO_ENDPOINT = "localhost:9000"
@@ -43,52 +42,101 @@ def load_data(bucket, filename, file_type="csv"):
 # --- Main Dashboard App ---
 def main():
     st.title("🚗 Urban Traffic Analytics Dashboard")
+
+    # 1. LOAD DATA FIRST
+    df = load_data("silver", "merged_analytical_data.parquet", "parquet")
+
+    if df is None:
+        st.error("Failed to load data from Silver Layer. Please check MinIO.")
+        return
+
+    # Ensure date_time is actually a datetime object (Crucial for filtering)
+    if not pd.api.types.is_datetime64_any_dtype(df["date_time"]):
+        df["date_time"] = pd.to_datetime(df["date_time"])
+
+    # 2. SIDEBAR FILTERS
+    st.sidebar.header("Filter Options")
+
+    # --- A. City Filter ---
+    city_list = ["All"] + list(df["city"].unique())
+    selected_city = st.sidebar.selectbox("Select City", city_list)
+
+    # --- B. Date Range Filter ---
+    min_date = df["date_time"].min().date()
+    max_date = df["date_time"].max().date()
+
+    st.sidebar.subheader("Select Date Range")
+    try:
+        start_date, end_date = st.sidebar.date_input(
+            "Date Range",
+            value=(min_date, max_date),  # Default to full range
+            min_value=min_date,
+            max_value=max_date,
+        )
+    except ValueError:
+        st.sidebar.error("Please select a valid Start and End date.")
+        start_date, end_date = min_date, max_date
+
+    # 3. APPLY FILTERS TO DATA
+    # Filter by City
+    if selected_city != "All":
+        df = df[df["city"] == selected_city]
+
+    # Filter by Date
+    mask = (df["date_time"].dt.date >= start_date) & (
+        df["date_time"].dt.date <= end_date
+    )
+    df = df[mask]
+
+    # Show User what is selected
+    st.sidebar.success(f"Records Found: {len(df)}")
+
     st.markdown("### Weather Impact Analysis & Risk Prediction")
 
-    # Create Tabs for the 3 main requirements
+    # 4. Create Tabs
     tab1, tab2, tab3 = st.tabs(
         ["📊 Dataset Statistics", "🎲 Monte Carlo Simulation", "🔍 Factor Analysis"]
     )
 
-    # --- TAB 1: Cleaned Dataset Statistics [cite: 186] ---
+    # --- TAB 1: Cleaned Dataset Statistics ---
     with tab1:
         st.header("Cleaned Analytical Dataset (Silver Layer)")
 
-        # Load merged data
-        df = load_data("silver", "merged_analytical_data.parquet", "parquet")
-
-        if df is not None:
-            # Top-level metrics
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Total Records", len(df))
-            col2.metric(
-                "Date Range",
-                f"{df['date_time'].dt.date.min()} to {df['date_time'].dt.date.max()}",
-            )
+        # Top-level metrics
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Records", len(df))
+        if not df.empty:
+            col2.metric("Date Range", f"{start_date} to {end_date}")
             col3.metric("Cities Covered", df["city"].nunique())
 
-            # Show Sample Data
-            st.subheader("Data Preview")
-            st.dataframe(df.head())
+        # Show Sample Data
+        st.subheader("Data Preview")
+        st.dataframe(df.head())
 
-            # Show Statistics
-            st.subheader("Statistical Summary")
-            st.write(df.describe())
+        # Show Statistics
+        st.subheader("Statistical Summary")
+        st.write(df.describe())
 
-            # Simple Visualization: Congestion Distribution
-            st.subheader("Traffic Congestion Levels")
+        # Simple Visualization: Congestion Distribution
+        st.subheader("Traffic Congestion Levels")
+        if not df.empty:
             congestion_counts = df["congestion_level"].value_counts()
             st.bar_chart(congestion_counts)
+        else:
+            st.warning("No data matches your filters.")
 
-    # --- TAB 2: Monte Carlo Simulation [cite: 187] ---
+    # --- TAB 2: Monte Carlo Simulation ---
     with tab2:
         st.header("Monte Carlo Risk Prediction (Gold Layer)")
+        st.info(
+            "Note: These results are based on the full simulation run (Gold Layer) and are not affected by the sidebar filters."
+        )
 
         # Load Results CSV
         sim_df = load_data("gold", "simulation_results.csv", "csv")
 
         if sim_df is not None:
-            # Calculate KPIs dynamically from the loaded results
+            # Calculate KPIs dynamically
             prob_jam = sim_df["is_traffic_jam"].mean() * 100
             prob_accident = sim_df["is_accident"].mean() * 100
             avg_risk = sim_df["risk_score"].mean()
@@ -101,23 +149,24 @@ def main():
 
             st.divider()
 
-            # Display the Generated Plot (Loading the PNG from Gold ensures exact match)
+            # Display the Generated Plot
             st.subheader("Risk Distribution Plot")
             image = load_data("gold", "congestion_distribution.png", "image")
             if image:
                 st.image(
                     image,
                     caption="Distribution of Simulated Risk Scores",
-                    use_column_width=True,
+                    use_container_width=True,
                 )
 
             # Raw Simulation Data
             with st.expander("View Raw Simulation Logs"):
                 st.dataframe(sim_df)
 
-    # --- TAB 3: Factor Analysis Insights [cite: 188] ---
+    # --- TAB 3: Factor Analysis Insights ---
     with tab3:
         st.header("Factor Analysis: Hidden Weather Drivers")
+        st.info("Note: Factor Analysis is a static model built on the entire dataset.")
 
         st.markdown(
             """
@@ -143,7 +192,7 @@ def main():
                 st.image(
                     heatmap_img,
                     caption="Correlation between Observed Variables and Hidden Factors",
-                    use_column_width=True,
+                    use_container_width=True,
                 )
 
 

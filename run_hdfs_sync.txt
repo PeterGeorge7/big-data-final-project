@@ -1,0 +1,5 @@
+docker run --rm --network finalbigdataproject_default `
+  -v "${PWD}/scripts:/app" `
+  -w /app `
+  python:3.9-slim `
+  /bin/bash -c "pip install minio hdfs && python hdfs_sync.py"

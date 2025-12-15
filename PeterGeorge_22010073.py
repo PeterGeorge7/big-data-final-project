@@ -14,162 +14,256 @@ def optimize(
     descent=True,
     epochs=10,
 ):
+    """
+    Unified optimization function that supports multiple optimization methods.
 
-    # Define variables
-    vars = sp.symbols(f"x_0:{n_vars}")
+    Parameters:
+        obj_fn (str): Objective function in variables x_0, x_1, and so on.
+                     Example: "(x_0 - 2)**2 + (x_1 - 3)**2"
+        method (str): Optimization method to use. Options:
+                     - 'calculus_based_opt': Symbolic optimization using gradient and Hessian (unconstrained)
+                     - 'lagrange': Lagrange method for constrained optimization
+                     - 'newton': Newton's method for numerical unconstrained optimization
+                     - 'steepest': Steepest descent/ascent method
+        n_vars (int): Number of variables, default is 1
+        minimize (bool): True for minimization, False for maximization, default is True
+        constraints (list of str, optional): Constraint(s) for Lagrange method.
+                                            Example: ['2 * x_0 + x_1 - 4']
+        inequality (bool): True for inequality constraints, False for equality constraints (Lagrange only)
+        initial_guess (list of floats, optional): Initial point for Newton and Steepest methods
+        epsilon (float): Error threshold for Newton method, default is 0.001
+        descent (bool): True for minimization, False for maximization (Steepest only), default is True
+        epochs (int): Number of iterations for Steepest method, default is 10
+
+    Returns:
+        tuple: ([best_point], best_value) rounded to 4 decimal points
+    """
+
+    # Create symbolic variables
+    if n_vars == 1:
+        x = [sp.Symbol("x_0")]
+    else:
+        x = list(sp.symbols(" ".join([f"x_{var_num}" for var_num in range(n_vars)])))
+
+    # Parse objective function
     f = sp.sympify(obj_fn)
 
     if method == "calculus_based_opt":
-        grad = [sp.diff(f, v) for v in vars]
-        critical_points = sp.solve(grad, vars, dict=True)
+        return calculus_based_optimization(f, x, minimize)
 
-        if not critical_points:
-            return None, None
-
-        hessian = sp.hessian(f, vars)
-
-        best_point = None
-        best_value = None
-
-        for point in critical_points:
-            value = f.subs(point)
-            hess_val = hessian.subs(point)
-
-            eigenvals = hess_val.eigenvals()
-            is_min = all(ev > 0 for ev in eigenvals)
-            is_max = all(ev < 0 for ev in eigenvals)
-
-            if (minimize and is_min) or (not minimize and is_max):
-                best_point = [float(point[v]) for v in vars]
-                best_value = float(value)
-
-        return [round(x, 4) for x in best_point], round(best_value, 4)
-
-    # ===============================
-    # 2. Lagrange Optimization
-    # ===============================
     elif method == "lagrange":
-        if not constraints:
-            raise ValueError("Constraints required for Lagrange method")
+        return lagrange_method(f, x, constraints, minimize)
 
-        lambdas = sp.symbols(f"lambda_0:{len(constraints)}")
-        lagrangian = f
-
-        for l, c in zip(lambdas, constraints):
-            lagrangian += l * sp.sympify(c)
-
-        equations = []
-        for v in vars:
-            equations.append(sp.diff(lagrangian, v))
-
-        for l in lambdas:
-            equations.append(sp.diff(lagrangian, l))
-
-        solutions = sp.solve(equations, (*vars, *lambdas), dict=True)
-
-        best_solution = solutions[0]
-        best_point = [float(best_solution[v]) for v in vars]
-        best_value = float(f.subs(best_solution))
-
-        return [round(x, 4) for x in best_point], round(best_value, 4)
-
-    # ===============================
-    # 3. Newton's Method
-    # ===============================
     elif method == "newton":
-        if initial_guess is None:
-            raise ValueError("Initial guess required for Newton method")
+        return newton_method(f, x, initial_guess, epsilon, minimize)
 
-        grad = sp.Matrix([sp.diff(f, v) for v in vars])
-        hessian = sp.hessian(f, vars)
-
-        x = sp.Matrix(initial_guess)
-
-        for _ in range(epochs):
-            grad_val = grad.subs(dict(zip(vars, x)))
-            hess_val = hessian.subs(dict(zip(vars, x)))
-
-            grad_np = np.array(grad_val, dtype=float).reshape(-1, 1)
-            hess_np = np.array(hess_val, dtype=float)
-
-            if np.linalg.norm(grad_np) < epsilon:
-                break
-
-            x = x - sp.Matrix(np.linalg.inv(hess_np).dot(grad_np))
-
-        best_point = [float(val) for val in x]
-        best_value = float(f.subs(dict(zip(vars, x))))
-
-        return [round(x, 4) for x in best_point], round(best_value, 4)
-
-    # ===============================
-    # 4. Steepest Descent / Ascent
-    # ===============================
     elif method == "steepest":
-        if initial_guess is None:
-            raise ValueError("Initial guess required for Steepest method")
-
-        grad = sp.Matrix([sp.diff(f, v) for v in vars])
-        x = np.array(initial_guess, dtype=float)
-
-        alpha = epsilon
-        direction = -1 if descent else 1
-
-        for _ in range(epochs):
-            grad_val = grad.subs(dict(zip(vars, x)))
-            grad_np = np.array(grad_val, dtype=float)
-            x = x + direction * alpha * grad_np
-
-        best_point = list(x)
-        best_value = float(f.subs(dict(zip(vars, x))))
-
-        return [round(x, 4) for x in best_point], round(best_value, 4)
+        return steepest_method(f, x, initial_guess, descent, epochs)
 
     else:
-        raise ValueError("Invalid optimization method")
+        raise ValueError(f"method is unkown")
 
 
-if __name__ == "__main__":
-    # Test 1: Calculus-based optimization
-    result1 = optimize(
-        "x_0**3 - x_0", method="calculus_based_opt", n_vars=1, minimize=True
-    )
-    print("Test 1:", result1)
-    print("Expected: ([0.5774], -0.3849)")
-    print()
+def calculus_based_optimization(f, x, minimize):
+    """Calculus-based optimization using gradient and Hessian"""
+    n_vars = len(x)
+    gradient = [sp.diff(f, xi) for xi in x]
+    critical_points = sp.solve(gradient, x, dict=True)
+    hessian = sp.Matrix([[sp.diff(f, xi, xj) for xj in x] for xi in x])
 
-    # Test 2: Lagrange method
-    result2 = optimize(
-        "2 * x_0 + x_1 + 10",
-        method="lagrange",
-        n_vars=2,
-        minimize=False,
-        constraints=["x_0 + 2 * x_1**2 - 3"],
-    )
-    print("Test 2:", result2)
-    print("Expected: ([2.9688, 0.125], 16.0625)")
-    print()
+    best_point = None
+    best_value = None
 
-    # Test 3: Newton's method
-    result3 = optimize(
-        "2 * sin(x_0) - 0.1 * x_0**2",
-        method="newton",
-        n_vars=1,
-        initial_guess=[2.5],
-        epsilon=0.05,
-    )
-    print("Test 3:", result3)
-    print("Expected: ([1.4276], 1.7757)")
-    print()
+    for point in critical_points:
+        H = hessian.subs(point)
 
-# Test 4: Steepest descent
-result4 = optimize(
-    "x_0 - x_1 + 2 * x_0 ** 2 + 2 * x_0 * x_1 + x_1 ** 2",
-    method="steepest",
-    n_vars=2,
-    initial_guess=[0, 0],
-    descent=True,
-    epochs=2,
-)
-print("Test 4:", result4)
-print("Expected: ([-0.8, 1.2], -1.2)")
+        try:
+            if n_vars == 1:
+                h_val = float(H[0, 0])
+                if (minimize and h_val > 0) or (not minimize and h_val < 0):
+                    value = float(f.subs(point))
+                    if (
+                        best_value is None
+                        or (minimize and value < best_value)
+                        or (not minimize and value > best_value)
+                    ):
+                        best_value = value
+                        best_point = [float(point[x[0]])]
+            else:
+                hessian_eigenvalues = H.eigenvals()
+
+                all_positive = all(
+                    float(sp.re(ev)) > 0 for ev in hessian_eigenvalues.keys()
+                )
+                all_negative = all(
+                    float(sp.re(ev)) < 0 for ev in hessian_eigenvalues.keys()
+                )
+
+                if (minimize and all_positive) or (not minimize and all_negative):
+                    value = float(f.subs(point))
+                    if (
+                        best_value is None
+                        or (minimize and value < best_value)
+                        or (not minimize and value > best_value)
+                    ):
+                        best_value = value
+                        best_point = [float(point[xi]) for xi in x]
+        except Exception as e:
+            continue
+
+    best_point = [round(p, 4) for p in best_point]
+    best_value = round(best_value, 4)
+
+    return best_point, best_value
+
+
+def lagrange_method(f, x, constraints, minimize):
+    """Lagrange multiplier method for constrained optimization"""
+    n_vars = len(x)
+    n_constraints = len(constraints)
+
+    if not minimize:
+        f = -f
+
+    if n_constraints == 1:
+        lambdas = [sp.Symbol("lambda_0")]
+    else:
+        lambdas = list(
+            sp.symbols(" ".join([f"lambda_{i}" for i in range(n_constraints)]))
+        )
+
+    g = [sp.sympify(constraint) for constraint in constraints]
+    L = f + sum(lambdas[i] * g[i] for i in range(n_constraints))
+    grad_L = [sp.diff(L, xi) for xi in x] + [sp.diff(L, lam) for lam in lambdas]
+    lagrange_solutions = sp.solve(grad_L, x + lambdas, dict=True)
+
+    best_point = None
+    best_value = None
+
+    for sol in lagrange_solutions:
+        try:
+            point = [float(sol[xi]) for xi in x]
+            value = float(f.subs(sol))
+
+            if not minimize:
+                value = -value
+
+            if (
+                best_value is None
+                or (minimize and value < best_value)
+                or (not minimize and value > best_value)
+            ):
+                best_value = value
+                best_point = point
+        except:
+            continue
+
+    best_point = [round(optimal_point, 4) for optimal_point in best_point]
+    best_value = round(best_value, 4)
+
+    return best_point, best_value
+
+
+def newton_method(f, x, initial_guess, epsilon, minimize):
+    """Newton's method for numerical optimization"""
+    n_vars = len(x)
+
+    if not minimize:
+        f = -f
+
+    gradient = sp.Matrix([sp.diff(f, xi) for xi in x])
+    hessian = sp.Matrix([[sp.diff(f, xi, xj) for xj in x] for xi in x])
+
+    gradient_function = sp.lambdify(x, gradient, "numpy")
+    compute_hessian = sp.lambdify(x, hessian, "numpy")
+    f_fn = sp.lambdify(x, f, "numpy")
+
+    point = np.array(initial_guess, dtype=float)
+
+    max_iter = 100
+    for _ in range(max_iter):
+        if n_vars == 1:
+            grad = np.array(gradient_function(point[0]), dtype=float).flatten()
+        else:
+            grad = np.array(gradient_function(*point), dtype=float).flatten()
+
+        if np.linalg.norm(grad) < epsilon:
+            break
+
+        if n_vars == 1:
+            hess = np.array(compute_hessian(point[0]), dtype=float).reshape(1, 1)
+        else:
+            hess = np.array(compute_hessian(*point), dtype=float)
+
+        try:
+            delta = np.linalg.solve(hess, -grad)
+            point = point + delta
+        except:
+            break
+
+    if n_vars == 1:
+        value = float(f_fn(point[0]))
+    else:
+        value = float(f_fn(*point))
+
+    if not minimize:
+        value = -value
+
+    best_point = [round(p, 4) for p in point.tolist()]
+    best_value = round(value, 4)
+
+    return best_point, best_value
+
+
+def steepest_method(f, x, initial_guess, descent, epochs):
+    """Steepest descent/ascent with exact line search (symbolic alpha)"""
+
+    n_vars = len(x)
+
+    grad_sym = [sp.diff(f, xi) for xi in x]
+
+    current_point = list(initial_guess)
+
+    for _ in range(epochs):
+        subs_dict = dict(zip(x, current_point))
+        grad_val = [float(g.subs(subs_dict)) for g in grad_sym]
+
+        # Stop if gradient is (almost) zero
+        if all(abs(gradient_component) < 1e-9 for gradient_component in grad_val):
+            break
+
+        # Direction
+        if descent:
+            direction = [-g for g in grad_val]
+        else:
+            direction = grad_val
+
+        # Exact line search
+        alpha = sp.symbols("alpha")
+        next_point_expr = [
+            current_point[i] + alpha * direction[i] for i in range(n_vars)
+        ]
+
+        objective_function_alpha = f.subs(dict(zip(x, next_point_expr)))
+        d_phi = sp.diff(objective_function_alpha, alpha)
+
+        sol = sp.solve(d_phi, alpha)
+        real_solutions = [s for s in sol if s.is_real]
+
+        if not real_solutions:
+            break
+
+        optimal_step_size = float(real_solutions[0])
+
+        # Update point
+        current_point = [
+            current_point[i] + optimal_step_size * direction[i] for i in range(n_vars)
+        ]
+
+    final_subs = dict(zip(x, current_point))
+    final_value = float(f.subs(final_subs))
+
+    best_point = [round(p, 4) for p in current_point]
+    best_value = round(final_value, 4)
+
+    return best_point, best_value

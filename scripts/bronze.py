@@ -8,10 +8,14 @@ def upload_to_bronze():
     client = Minio("localhost:9000", "admin", "admin123", secure=False)
 
     client.fput_object(
-        "bronze", "weather_data.csv", "../SyntheticData/weather_data.csv"
+        "bronze",
+        "weather_data.csv",
+        "D:\\Data Engineer\\Data Engineering Projects\\Final Big Data Project\\SyntheticData\\weather_data.csv",
     )
     client.fput_object(
-        "bronze", "traffic_data.csv", "../SyntheticData/traffic_data.csv"
+        "bronze",
+        "traffic_data.csv",
+        "D:\\Data Engineer\\Data Engineering Projects\\Final Big Data Project\\SyntheticData\\traffic_data.csv",
     )
 
     list_of_objs = client.list_objects("bronze")

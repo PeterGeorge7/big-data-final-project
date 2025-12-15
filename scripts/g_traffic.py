@@ -3,7 +3,6 @@ import numpy as np
 import random
 from datetime import datetime, timedelta
 
-# Configuration
 NUM_RECORDS = 5500
 CITY = "London"
 
@@ -57,7 +56,10 @@ def generate_traffic_data():
     df.loc[random.sample(range(len(df)), 20), "date_time"] = "2099-00-00 99:99"
 
     print("saving traffic_data.csv...")
-    df.to_csv("../SyntheticData/traffic_data.csv", index=False)
+    df.to_csv(
+        "D:\\Data Engineer\\Data Engineering Projects\\Final Big Data Project\\SyntheticData\\traffic_data.csv",
+        index=False,
+    )
 
 
 if __name__ == "__main__":

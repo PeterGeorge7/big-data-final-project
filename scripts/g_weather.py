@@ -29,7 +29,6 @@ def generate_weather_data():
         "air_pressure_hpa": np.random.uniform(950, 1050, size=NUM_RECORDS),
     }
 
-    # season and temperature based on month
     for d in dates:
         month = d.month
         if month in [12, 1, 2]:
@@ -52,7 +51,6 @@ def generate_weather_data():
 
     df.reset_index(drop=True, inplace=True)
 
-    # outliers
     df.loc[random.sample(range(len(df)), 50), "temperature_c"] = np.random.choice(
         [-30, 60], 50
     )
@@ -68,16 +66,17 @@ def generate_weather_data():
     df.loc[random.sample(range(len(df)), 50), "visibility_m"] = np.random.randint(
         20000, 50000, 50
     )
-    # Null Values
     for col in df.columns:
         df.loc[df.sample(frac=0.05).index, col] = np.nan
 
-    # Bad Date Formats
     df["date_time"] = df["date_time"].astype(object)
     df.loc[random.sample(range(len(df)), 20), "date_time"] = "2099-13-40 25:61"
 
     print("save weather_data.csv...")
-    df.to_csv("../SyntheticData/weather_data.csv", index=False)
+    df.to_csv(
+        "D:\\Data Engineer\\Data Engineering Projects\\Final Big Data Project\\SyntheticData\\weather_data.csv",
+        index=False,
+    )
 
 
 if __name__ == "__main__":
